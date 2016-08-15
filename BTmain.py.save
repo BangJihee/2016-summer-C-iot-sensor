@@ -1,0 +1,56 @@
+import logging
+from BTSocketServer import BTSocketServer
+from BTSensorDevice import BTSensor
+from BTSensorDevice import BTSensorReader_thr
+from BTSensorDevice import BTArchive
+
+
+#global variable
+logging.basicConfig(level=logging.INFO) #using import BT*
+Flag_connec = False
+
+#BTDB = BTDataBase()
+
+def func_Sensors():
+    return [BTSensor(id=0,name="Temp"),
+            BTSensor(id=1,name="PM25"),
+            BTSensor(id=2,name="CO"),
+            BTSensor(id=3,name="NO2"),
+            BTSensor(id=4,name="SO2"),
+            BTSensor(id=5,name="O3")]
+
+sensors = func_Sensors() # initialize 6 sensors list
+reader = BTSensorReader_thr(thread_name="SR-Thread",thread_id=1,sensors=sensors)
+BTArchive()reader.start()
+csv_sender = BTArchive()
+csv_sender.start()
+
+#BT cmd(setup)
+while True:
+    try:
+        if Flag_connec != True:
+            server = BTSocketServer()
+            server.start()
+            server.wait()
+            Flag_connec = True
+
+        else:
+            data = server.recv()
+            print("received [%s]" % data)
+            #if len(data) == 0: break
+            if data == "start":
+                print("Start sending data...")
+                reader.send_req = True
+                reader.SERVER = server
+                csv_sender.SERVER = server 
+            elif data == "stop":
+                print("Stop sending data...")
+                reader.send_req = False
+
+    except IOError:
+        server.stop()
+        reader.send_req = False
+        Flag_connec = False
+
+reader.running = False
+
